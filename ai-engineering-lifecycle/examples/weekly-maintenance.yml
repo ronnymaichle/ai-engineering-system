@@ -1,0 +1,37 @@
+# EXAMPLE ONLY. Copy to .github/workflows/weekly-maintenance.yml after review.
+# Requires this skill to be committed at .claude/skills/ai-engineering-lifecycle/.
+# Read-only metadata report. Does not run a security scanner, AI agent, app tests,
+# vulnerability lookup, auto-fix, create PRs, publish or deploy.
+# Set review ownership and verify that the schedule actually runs after enabling.
+# For production-grade use, pin third-party and first-party actions to reviewed SHAs.
+name: Weekly repository health (read-only)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 07:23 UTC on Mondays. Scheduling is best-effort; it may be delayed or skipped.
+    - cron: '23 7 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repo-health-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+      - name: Verify locally installed skill
+        run: test -f .claude/skills/ai-engineering-lifecycle/scripts/repo_health.py
+      - name: Generate read-only repository metadata report
+        run: |
+          python3 .claude/skills/ai-engineering-lifecycle/scripts/repo_health.py \
+            --root . \
+            --output "$RUNNER_TEMP/repo-health.md" \
+            --json "$RUNNER_TEMP/repo-health.json"
+          cat "$RUNNER_TEMP/repo-health.md" >> "$GITHUB_STEP_SUMMARY"
